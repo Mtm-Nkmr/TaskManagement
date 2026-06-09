@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>タスク管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header class="header">
+    <h1 class="header__title">タスク管理</h1>
+  </header>
+
+  <!-- カンバンボード -->
+  <main class="board">
+    <!-- 未着手カラム -->
+    <section class="column" data-status="todo">
+      <div class="column__header">
+        <span class="column__label">未着手</span>
+        <span class="column__count" id="count-todo">0</span>
+        <button class="btn btn--sort-col" id="sort-todo" onclick="toggleColumnSort('todo')">期限順</button>
+      </div>
+      <div class="column__cards" id="cards-todo"
+           ondragover="handleDragOver(event)"
+           ondrop="handleDrop(event, 'todo')">
+      </div>
+      <button class="btn btn--add" onclick="openAddModal('todo')">＋ タスクを追加</button>
+    </section>
+
+    <!-- 進行中カラム -->
+    <section class="column" data-status="in_progress">
+      <div class="column__header">
+        <span class="column__label">進行中</span>
+        <span class="column__count" id="count-in_progress">0</span>
+        <button class="btn btn--sort-col" id="sort-in_progress" onclick="toggleColumnSort('in_progress')">期限順</button>
+      </div>
+      <div class="column__cards" id="cards-in_progress"
+           ondragover="handleDragOver(event)"
+           ondrop="handleDrop(event, 'in_progress')">
+      </div>
+      <button class="btn btn--add" onclick="openAddModal('in_progress')">＋ タスクを追加</button>
+    </section>
+
+    <!-- 完了カラム -->
+    <section class="column" data-status="done">
+      <div class="column__header">
+        <span class="column__label">完了</span>
+        <span class="column__count" id="count-done">0</span>
+        <button class="btn btn--sort-col" id="sort-done" onclick="toggleColumnSort('done')">期限順</button>
+      </div>
+      <div class="column__cards" id="cards-done"
+           ondragover="handleDragOver(event)"
+           ondrop="handleDrop(event, 'done')">
+      </div>
+      <button class="btn btn--add" onclick="openAddModal('done')">＋ タスクを追加</button>
+    </section>
+  </main>
+
+  <!-- タスク追加/編集モーダル -->
+  <div class="overlay" id="taskModalOverlay" onclick="closeTaskModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal__close" onclick="closeTaskModal()">×</button>
+      <h2 class="modal__title" id="modalTitle">タスクを追加</h2>
+      <div class="form-group">
+        <label class="form-label" for="taskTitleInput">タイトル <span class="required">*</span></label>
+        <input class="form-input" type="text" id="taskTitleInput" placeholder="タスクのタイトルを入力" />
+        <p class="form-error" id="titleError">タイトルを入力してください</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="taskDueDateInput">期限</label>
+        <input class="form-input" type="date" id="taskDueDateInput" />
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--cancel" onclick="closeTaskModal()">キャンセル</button>
+        <button class="btn btn--save" onclick="saveTask()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 削除確認ダイアログ -->
+  <div class="overlay" id="deleteDialogOverlay" onclick="closeDeleteDialog()">
+    <div class="dialog" onclick="event.stopPropagation()">
+      <h2 class="dialog__title">タスクを削除しますか？</h2>
+      <p class="dialog__task-name" id="deleteTaskName"></p>
+      <p class="dialog__warning">この操作は元に戻せません</p>
+      <div class="modal__actions">
+        <button class="btn btn--cancel" onclick="closeDeleteDialog()">キャンセル</button>
+        <button class="btn btn--delete" onclick="confirmDelete()">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
