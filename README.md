@@ -16,7 +16,8 @@
 | 領域 | 技術 | バージョン |
 |------|------|-----------|
 | フロントエンド | React + TypeScript | React 19.2 / TypeScript 6.0 |
-| ビルドツール | Vite | 8.1 |
+| ビルドツール（フロントエンド） | Vite | 8.1 |
+| ビルドツール（バックエンド） | Gradle | 9.5 |
 | CSS | Tailwind CSS | 4.3 |
 | バックエンド | Java + Spring Boot | Java 25 / Spring Boot 4.0 |
 | データベース | PostgreSQL | 17 |
