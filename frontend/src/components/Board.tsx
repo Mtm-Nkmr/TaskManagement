@@ -35,6 +35,7 @@ export function Board() {
           key={status}
           status={status}
           tasks={tasks.filter((task) => task.status === status)}
+          onAddClick={() => {}}
         />
       ))}
     </div>

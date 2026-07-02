@@ -4,6 +4,7 @@ import { TaskCard } from "./TaskCard";
 interface ColumnProps {
   status: TaskStatus;
   tasks: Task[];
+  onAddClick: (status: TaskStatus) => void;
 }
 
 // ステータスごとの表示ラベルと色（プロトタイプの配色を踏襲）
@@ -28,7 +29,7 @@ const COLUMN_STYLE: Record<
   },
 };
 
-export function Column({ status, tasks }: ColumnProps) {
+export function Column({ status, tasks, onAddClick }: ColumnProps) {
   const style = COLUMN_STYLE[status];
 
   // カラム内は sortOrder の昇順で並べる
@@ -51,6 +52,15 @@ export function Column({ status, tasks }: ColumnProps) {
           <TaskCard key={task.id} task={task} />
         ))}
       </div>
+      {status !== "done" && (
+        <button
+          type="button"
+          onClick={() => onAddClick(status)}
+          className="mt-2 w-full rounded-lg border border-dashed border-gray-300 p-2.5 text-sm text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+        >
+          ＋ 追加
+        </button>
+      )}
     </div>
   );
 }
