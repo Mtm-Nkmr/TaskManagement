@@ -12,3 +12,10 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
 }
+
+// POST /api/tasks のリクエストボディに対応する型
+export interface CreateTaskInput {
+  title: string;
+  status: TaskStatus;
+  dueDate: string | null;
+}
