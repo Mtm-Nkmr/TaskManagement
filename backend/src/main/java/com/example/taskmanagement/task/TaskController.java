@@ -32,4 +32,11 @@ public class TaskController {
     public Task create(@RequestBody @Valid TaskCreateRequest request) {
         return taskService.create(request);
     }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<Task> update(@PathVariable Long id, @RequestBody @Valid TaskUpdateRequest request) {
+        return taskService.update(id, request)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
