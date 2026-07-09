@@ -31,4 +31,12 @@ public class TaskService {
 
         return taskRepository.save(task);
     }
+
+    public Optional<Task> update(Long id, TaskUpdateRequest request) {
+        return taskRepository.findById(id).map(task -> {
+            task.setTitle(request.getTitle());
+            task.setDueDate(request.getDueDate());
+            return taskRepository.save(task);
+        });
+    }
 }
