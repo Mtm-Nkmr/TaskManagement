@@ -1,16 +1,31 @@
-import { useState } from "react";
-import type { TaskStatus } from "../types/task";
+import { useRef, useState } from "react";
+import type { Task } from "../types/task";
 
 interface TaskFormModalProps {
-  status: TaskStatus;
+  // 編集対象のタスク。渡されれば編集モード、なければ追加モード
+  editingTask?: Task | null;
   onSave: (input: { title: string; dueDate: string | null }) => void;
   onClose: () => void;
 }
 
-export function TaskFormModal({ onSave, onClose }: TaskFormModalProps) {
-  const [title, setTitle] = useState("");
-  const [dueDate, setDueDate] = useState("");
+export function TaskFormModal({ editingTask, onSave, onClose }: TaskFormModalProps) {
+  // 編集モードなら既存の値を初期値にする（なければ空）
+  const [title, setTitle] = useState(editingTask?.title ?? "");
+  const [dueDate, setDueDate] = useState(editingTask?.dueDate ?? "");
   const [titleError, setTitleError] = useState(false);
+  // マウスを押した場所が背景自身だったかを覚えておく
+  // （テキスト選択のドラッグが背景まではみ出て離された場合に誤って閉じないようにする）
+  const mouseDownOnOverlay = useRef(false);
+
+  function handleOverlayMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    mouseDownOnOverlay.current = e.target === e.currentTarget;
+  }
+
+  function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget && mouseDownOnOverlay.current) {
+      onClose();
+    }
+  }
 
   function handleSave() {
     if (title.trim() === "") {
@@ -23,7 +38,8 @@ export function TaskFormModal({ onSave, onClose }: TaskFormModalProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
+      onMouseDown={handleOverlayMouseDown}
+      onClick={handleOverlayClick}
     >
       <div
         className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-xl"
@@ -36,7 +52,9 @@ export function TaskFormModal({ onSave, onClose }: TaskFormModalProps) {
         >
           ×
         </button>
-        <h2 className="mb-6 text-lg font-bold text-gray-800">タスクを追加</h2>
+        <h2 className="mb-6 text-lg font-bold text-gray-800">
+          {editingTask ? "タスクを編集" : "タスクを追加"}
+        </h2>
 
         <div className="mb-4">
           <label className="mb-1 block text-sm font-semibold text-gray-700">

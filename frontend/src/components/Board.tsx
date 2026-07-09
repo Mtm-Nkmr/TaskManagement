@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Task, TaskStatus } from "../types/task";
-import { fetchTasks, createTask } from "../api/taskApi";
+import { fetchTasks, createTask, updateTask } from "../api/taskApi";
 import { Column } from "./Column";
 import { TaskFormModal } from "./TaskFormModal";
 
@@ -12,6 +12,7 @@ export function Board() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalStatus, setModalStatus] = useState<TaskStatus | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   useEffect(() => {
     fetchTasks()
@@ -38,16 +39,26 @@ export function Board() {
           status={status}
           tasks={tasks.filter((task) => task.status === status)}
           onAddClick={setModalStatus}
+          onEditClick={setEditingTask}
         />
       ))}
-      {modalStatus !== null && (
+      {(modalStatus !== null || editingTask !== null) && (
         <TaskFormModal
-          status={modalStatus}
-          onClose={() => setModalStatus(null)}
-          onSave={async (input) => {
-            const newTask = await createTask({ ...input, status: modalStatus });
-            setTasks((prev) => [...prev, newTask]);
+          editingTask={editingTask}
+          onClose={() => {
             setModalStatus(null);
+            setEditingTask(null);
+          }}
+          onSave={async (input) => {
+            if (editingTask) {
+              const updated = await updateTask(editingTask.id, input);
+              setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+              setEditingTask(null);
+            } else if (modalStatus) {
+              const newTask = await createTask({ ...input, status: modalStatus });
+              setTasks((prev) => [...prev, newTask]);
+              setModalStatus(null);
+            }
           }}
         />
       )}
