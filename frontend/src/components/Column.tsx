@@ -5,6 +5,7 @@ interface ColumnProps {
   status: TaskStatus;
   tasks: Task[];
   onAddClick: (status: TaskStatus) => void;
+  onEditClick: (task: Task) => void;
 }
 
 // ステータスごとの表示ラベルと色（プロトタイプの配色を踏襲）
@@ -29,7 +30,7 @@ const COLUMN_STYLE: Record<
   },
 };
 
-export function Column({ status, tasks, onAddClick }: ColumnProps) {
+export function Column({ status, tasks, onAddClick, onEditClick }: ColumnProps) {
   const style = COLUMN_STYLE[status];
 
   // カラム内は sortOrder の昇順で並べる
@@ -49,7 +50,7 @@ export function Column({ status, tasks, onAddClick }: ColumnProps) {
       </div>
       <div className="flex min-h-20 flex-col gap-2.5">
         {sortedTasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard key={task.id} task={task} onEditClick={onEditClick} />
         ))}
       </div>
       {status !== "done" && (

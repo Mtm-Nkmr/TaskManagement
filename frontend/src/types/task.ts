@@ -19,3 +19,10 @@ export interface CreateTaskInput {
   status: TaskStatus;
   dueDate: string | null;
 }
+
+// PATCH /api/tasks/{id} のリクエストボディに対応する型
+// （タイトルと期限のみ更新。status や並び順は含めない）
+export interface UpdateTaskInput {
+  title: string;
+  dueDate: string | null;
+}

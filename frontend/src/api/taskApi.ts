@@ -1,4 +1,4 @@
-import type { Task, CreateTaskInput } from "../types/task";
+import type { Task, CreateTaskInput, UpdateTaskInput } from "../types/task";
 
 // 全タスクを取得する。
 // /api はViteのproxy設定によりバックエンド(http://localhost:8080)へ転送される。
@@ -20,6 +20,20 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new Error(body?.errors?.title ?? "タスクの作成に失敗しました");
+  }
+  return response.json();
+}
+
+// タスクを更新する（タイトル・期限）。
+export async function updateTask(id: number, input: UpdateTaskInput): Promise<Task> {
+  const response = await fetch(`/api/tasks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.errors?.title ?? "タスクの更新に失敗しました");
   }
   return response.json();
 }
