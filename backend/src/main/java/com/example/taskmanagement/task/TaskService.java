@@ -39,4 +39,22 @@ public class TaskService {
             return taskRepository.save(task);
         });
     }
+
+    public Optional<Task> updatePosition(Long id, TaskPositionUpdateRequest request) {
+        return taskRepository.findById(id).map(task -> {
+            List<Task> tasksInColumn = taskRepository.findByStatusOrderBySortOrderAsc(request.getStatus());
+            tasksInColumn.removeIf(t -> t.getId().equals(id));
+
+            int insertIndex = Math.min(request.getIndex(), tasksInColumn.size());
+            tasksInColumn.add(insertIndex, task);
+
+            task.setStatus(request.getStatus());
+            for (int i = 0; i < tasksInColumn.size(); i++) {
+                tasksInColumn.get(i).setSortOrder(i);
+            }
+
+            taskRepository.saveAll(tasksInColumn);
+            return task;
+        });
+    }
 }
