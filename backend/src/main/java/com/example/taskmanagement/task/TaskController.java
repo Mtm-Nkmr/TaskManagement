@@ -39,4 +39,11 @@ public class TaskController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PatchMapping("/{id}/position")
+    public ResponseEntity<Task> updatePosition(@PathVariable Long id, @RequestBody @Valid TaskPositionUpdateRequest request) {
+        return taskService.updatePosition(id, request)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
