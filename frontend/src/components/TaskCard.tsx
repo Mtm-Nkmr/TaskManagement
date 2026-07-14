@@ -1,3 +1,5 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Task } from "../types/task";
 
 interface TaskCardProps {
@@ -16,6 +18,16 @@ function isOverdue(dueDate: string): boolean {
 export function TaskCard({ task, onEditClick }: TaskCardProps) {
   const { title, dueDate } = task;
 
+  // このカード自体を「つかんで動かせるもの」として登録する（idはtask.id）
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
+  const dragStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   // 期限表示の文言とスタイルを決める
   let dueLabel: string;
   let dueClass: string;
@@ -31,7 +43,13 @@ export function TaskCard({ task, onEditClick }: TaskCardProps) {
   }
 
   return (
-    <div className="relative rounded-lg bg-white px-3.5 py-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div
+      ref={setNodeRef}
+      style={dragStyle}
+      {...attributes}
+      {...listeners}
+      className="relative rounded-lg bg-white px-3.5 py-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    >
       <button
         type="button"
         onClick={() => onEditClick(task)}

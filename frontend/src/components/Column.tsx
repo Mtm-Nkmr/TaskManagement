@@ -1,3 +1,5 @@
+import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Task, TaskStatus } from "../types/task";
 import { TaskCard } from "./TaskCard";
 
@@ -36,8 +38,14 @@ export function Column({ status, tasks, onAddClick, onEditClick }: ColumnProps) 
   // カラム内は sortOrder の昇順で並べる
   const sortedTasks = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // このカラム自体を「カードをドロップできる場所」として登録する（idはstatus）
+  const { setNodeRef } = useDroppable({ id: status });
+
   return (
-    <div className="flex w-75 min-w-75 flex-shrink-0 flex-col rounded-xl bg-slate-200 p-4">
+    <div
+      ref={setNodeRef}
+      className="flex w-75 min-w-75 flex-shrink-0 flex-col rounded-xl bg-slate-200 p-4"
+    >
       <div className="mb-3 flex items-center gap-2">
         <span className={`text-sm font-bold tracking-wide ${style.labelColor}`}>
           {style.label}
@@ -48,11 +56,14 @@ export function Column({ status, tasks, onAddClick, onEditClick }: ColumnProps) 
           {sortedTasks.length}
         </span>
       </div>
-      <div className="flex min-h-20 flex-col gap-2.5">
-        {sortedTasks.map((task) => (
-          <TaskCard key={task.id} task={task} onEditClick={onEditClick} />
-        ))}
-      </div>
+      {/* カラム内のタスク一覧を「並び替え可能なグループ」として登録する */}
+      <SortableContext items={sortedTasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
+        <div className="flex min-h-20 flex-col gap-2.5">
+          {sortedTasks.map((task) => (
+            <TaskCard key={task.id} task={task} onEditClick={onEditClick} />
+          ))}
+        </div>
+      </SortableContext>
       {status !== "done" && (
         <button
           type="button"
