@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { Task, TaskStatus } from "../types/task";
 import { TaskCard } from "./TaskCard";
 
@@ -35,8 +35,8 @@ const COLUMN_STYLE: Record<
 export function Column({ status, tasks, onAddClick, onEditClick }: ColumnProps) {
   const style = COLUMN_STYLE[status];
 
-  // カラム内は sortOrder の昇順で並べる
-  const sortedTasks = [...tasks].sort((a, b) => a.sortOrder - b.sortOrder);
+  // 並び順は親（board）が管理するので、ここでは渡された順序をそのまま使う
+  const sortedTasks = tasks;
 
   // このカラム自体を「カードをドロップできる場所」として登録する（idはstatus）
   const { setNodeRef } = useDroppable({ id: status });
@@ -56,8 +56,13 @@ export function Column({ status, tasks, onAddClick, onEditClick }: ColumnProps) 
           {sortedTasks.length}
         </span>
       </div>
-      {/* カラム内のタスク一覧を「並び替え可能なグループ」として登録する */}
-      <SortableContext items={sortedTasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
+      {/* カラム内のタスク一覧を「並び替え可能なグループ」として登録する。
+          id=status を付けることで、各カードが「どのカラムの子か」を衝突判定から辿れるようにする */}
+      <SortableContext
+        id={status}
+        items={sortedTasks.map((task) => task.id)}
+        strategy={rectSortingStrategy}
+      >
         <div className="flex min-h-20 flex-col gap-2.5">
           {sortedTasks.map((task) => (
             <TaskCard key={task.id} task={task} onEditClick={onEditClick} />
