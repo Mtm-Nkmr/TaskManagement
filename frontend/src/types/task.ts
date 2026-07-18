@@ -26,3 +26,9 @@ export interface UpdateTaskInput {
   title: string;
   dueDate: string | null;
 }
+
+// PATCH /api/tasks/{id}/position のリクエストボディに対応する型
+export interface UpdatePositionInput {
+  status: TaskStatus;
+  index: number;
+}

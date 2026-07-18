@@ -1,4 +1,4 @@
-import type { Task, CreateTaskInput, UpdateTaskInput } from "../types/task";
+import type { Task, CreateTaskInput, UpdateTaskInput, UpdatePositionInput } from "../types/task";
 
 // 全タスクを取得する。
 // /api はViteのproxy設定によりバックエンド(http://localhost:8080)へ転送される。
@@ -34,6 +34,19 @@ export async function updateTask(id: number, input: UpdateTaskInput): Promise<Ta
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new Error(body?.errors?.title ?? "タスクの更新に失敗しました");
+  }
+  return response.json();
+}
+
+// タスクの位置（ステータス・並び順）を更新する。
+export async function updateTaskPosition(id: number, input: UpdatePositionInput): Promise<Task> {
+  const response = await fetch(`/api/tasks/${id}/position`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(`タスクの位置更新に失敗しました (status: ${response.status})`);
   }
   return response.json();
 }
