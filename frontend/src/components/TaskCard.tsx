@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task } from "../types/task";
@@ -58,11 +59,29 @@ function TaskCardBody({ task, onEditClick }: { task: Task; onEditClick?: (task: 
   );
 }
 
+// マウントされてから一定時間（0.5秒）経ったかどうかを返す。
+// 「ドラッグ中に、たった今この場所に生まれたばかりのカードかどうか」の判定に使う。
+function useMountStatus() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setIsMounted(true), 500);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  return isMounted;
+}
+
 // 通常のカード。つかんで動かせるように useSortable の配線を持つ。
 export function TaskCard({ task, onEditClick }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
+  const mounted = useMountStatus();
+  // ドラッグ中、かつこの場所にできたばかり（別カラムから移ってきた直後）のカードだけ
+  // フェードインさせ、「パッと切り替わる」印象をやわらげる
+  const isNewlyMountedWhileDragging = isDragging && !mounted;
+
   const dragStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -75,7 +94,9 @@ export function TaskCard({ task, onEditClick }: TaskCardProps) {
       style={dragStyle}
       {...attributes}
       {...listeners}
-      className={`${CARD_CLASS} transition-shadow hover:shadow-md`}
+      className={`${CARD_CLASS} transition-shadow hover:shadow-md ${
+        isNewlyMountedWhileDragging ? "animate-fade-in" : ""
+      }`}
     >
       <TaskCardBody task={task} onEditClick={onEditClick} />
     </div>

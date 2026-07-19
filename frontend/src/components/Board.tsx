@@ -1,14 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  closestCorners,
+  closestCenter,
+  getFirstCollision,
+  pointerWithin,
+  rectIntersection,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { Task, TaskStatus } from "../types/task";
@@ -51,6 +56,57 @@ export function Board() {
       activationConstraint: { distance: 8 },
     }),
   );
+
+  // 直前の衝突判定結果を覚えておく（レイアウトが変わって一瞬当たり判定が
+  // 見つからなくなる瞬間の"穴埋め"に使い、判定のガタつきを防ぐ）
+  const lastOverId = useRef<UniqueIdentifier | null>(null);
+  // カラムを跨いだ直後だけtrueになるフラグ（boardが更新された次のフレームでリセットする）
+  const recentlyMovedToNewContainer = useRef(false);
+  // 判定関数の中から最新のboardを読むための参照。
+  // useCallbackの依存配列にboardを直接入れると、boardが更新されるたびに
+  // 判定関数そのものが作り直されてdnd-kit側の再セットアップを引き起こし、
+  // 無限ループの原因になったため、refで参照だけ渡すようにしている。
+  const boardRef = useRef(board);
+  boardRef.current = board;
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      recentlyMovedToNewContainer.current = false;
+    });
+  }, [board]);
+
+  // 2段構えの衝突判定:
+  // ① まずカーソルが乗っているものを探す（乗っていなければ矩形の重なりで補う）
+  // ② それがカラム自体なら、そのカラムの中で一番近いカードに絞り込む
+  // ③ どこにも当たらなかった瞬間は、前回の判定結果（lastOverId）を使って穴埋めする
+  const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
+    const board = boardRef.current;
+    const pointerCollisions = pointerWithin(args);
+    const collisions = pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
+    let overId = getFirstCollision(collisions, "id");
+
+    if (overId != null) {
+      if (COLUMN_ORDER.includes(overId as TaskStatus)) {
+        const columnTasks = board[overId as TaskStatus];
+        if (columnTasks.length > 0) {
+          const cardIds = new Set(columnTasks.map((t) => t.id));
+          overId =
+            closestCenter({
+              ...args,
+              droppableContainers: args.droppableContainers.filter((c) => cardIds.has(c.id)),
+            })[0]?.id ?? overId;
+        }
+      }
+      lastOverId.current = overId;
+      return [{ id: overId }];
+    }
+
+    if (recentlyMovedToNewContainer.current) {
+      lastOverId.current = args.active.id;
+    }
+
+    return lastOverId.current ? [{ id: lastOverId.current }] : [];
+  }, []);
 
   useEffect(() => {
     fetchTasks()
@@ -97,16 +153,26 @@ export function Board() {
       const activeTask = prev[fromStatus].find((t) => t.id === active.id);
       if (!activeTask) return prev;
 
-      // 別カラムに入った瞬間は、ひとまず末尾に置くだけにする。
-      // カードの手前／後ろまで細かく判定すると、カードの中心付近でカクカクと
-      // 判定が入れ替わり続けて無限ループになるため、細かい位置はhandleDragEndで確定させる。
+      // 挿入位置: カードの上に来たら、そのカードの「下端」を基準に手前／後ろを決める。
+      // 真ん中を基準にすると、カーソルがカードの中心付近にあるだけで判定が
+      // 入れ替わり続けてしまうため、下端を基準にして揺れにくくする。
       const dest = prev[toStatus];
+      let insertIndex = dest.length;
+      if (overTask) {
+        const overIndex = dest.findIndex((t) => t.id === overTask.id);
+        const activeRect = active.rect.current.translated ?? active.rect.current.initial;
+        const isBelowOverItem = (activeRect?.top ?? 0) > over.rect.top + over.rect.height;
+        insertIndex = overIndex >= 0 ? overIndex + (isBelowOverItem ? 1 : 0) : dest.length;
+      }
       const movedTask = { ...activeTask, status: toStatus };
+
+      // カラムを跨いだことを記録しておく（衝突判定側の穴埋めに使う）
+      recentlyMovedToNewContainer.current = true;
 
       return {
         ...prev,
         [fromStatus]: prev[fromStatus].filter((t) => t.id !== activeTask.id),
-        [toStatus]: [...dest, movedTask],
+        [toStatus]: [...dest.slice(0, insertIndex), movedTask, ...dest.slice(insertIndex)],
       };
     });
   }
@@ -178,7 +244,7 @@ export function Board() {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetectionStrategy}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
