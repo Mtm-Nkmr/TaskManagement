@@ -1,11 +1,14 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { Task, TaskStatus } from "../types/task";
+import { sortByDueDate } from "../utils/sortByDueDate";
 import { TaskCard } from "./TaskCard";
 
 interface ColumnProps {
   status: TaskStatus;
   tasks: Task[];
+  isDueDateSorted: boolean;
+  onToggleDueDateSort: (status: TaskStatus) => void;
   onAddClick: (status: TaskStatus) => void;
   onEditClick: (task: Task) => void;
 }
@@ -32,11 +35,19 @@ const COLUMN_STYLE: Record<
   },
 };
 
-export function Column({ status, tasks, onAddClick, onEditClick }: ColumnProps) {
+export function Column({
+  status,
+  tasks,
+  isDueDateSorted,
+  onToggleDueDateSort,
+  onAddClick,
+  onEditClick,
+}: ColumnProps) {
   const style = COLUMN_STYLE[status];
 
-  // 並び順は親（board）が管理するので、ここでは渡された順序をそのまま使う
-  const sortedTasks = tasks;
+  // 並び順は親（board）が管理するので、通常は渡された順序をそのまま使う。
+  // 期限順ソートが有効なときだけ、表示直前に期限順へ並べ替える（boardの中身自体は変えない）
+  const sortedTasks = isDueDateSorted ? sortByDueDate(tasks) : tasks;
 
   // このカラム自体を「カードをドロップできる場所」として登録する（idはstatus）
   const { setNodeRef } = useDroppable({ id: status });
@@ -55,6 +66,17 @@ export function Column({ status, tasks, onAddClick, onEditClick }: ColumnProps) 
         >
           {sortedTasks.length}
         </span>
+        <button
+          type="button"
+          onClick={() => onToggleDueDateSort(status)}
+          className={`ml-auto rounded-md px-2 py-1 text-xs font-bold transition ${
+            isDueDateSorted
+              ? "bg-indigo-500 text-white"
+              : "bg-white text-gray-500 hover:bg-gray-100"
+          }`}
+        >
+          期限順
+        </button>
       </div>
       {/* カラム内のタスク一覧を「並び替え可能なグループ」として登録する。
           id=status を付けることで、各カードが「どのカラムの子か」を衝突判定から辿れるようにする */}

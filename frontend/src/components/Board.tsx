@@ -18,6 +18,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import type { Task, TaskStatus } from "../types/task";
 import { fetchTasks, createTask, updateTask, updateTaskPosition } from "../api/taskApi";
+import { sortByDueDate } from "../utils/sortByDueDate";
 import { Column } from "./Column";
 import { TaskCardOverlay } from "./TaskCard";
 import { TaskFormModal } from "./TaskFormModal";
@@ -49,6 +50,18 @@ export function Board() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   // ドラッグ中のカード（DragOverlayで分身として表示する）
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  // カラムごとに「今、期限順で表示中かどうか」を覚えておく（boardの中身自体は常に手動順のまま）
+  const [dueDateSorted, setDueDateSorted] = useState<Record<TaskStatus, boolean>>({
+    todo: false,
+    in_progress: false,
+    done: false,
+  });
+
+  // 「今画面に表示されている並び」を返す。期限順ソート中のカラムなら期限順に並べ替えた配列、
+  // そうでなければそのままの配列。ドラッグ操作は常にこの"見た目の並び"を基準に計算する。
+  function getDisplayTasks(status: TaskStatus, source: Board): Task[] {
+    return dueDateSorted[status] ? sortByDueDate(source[status]) : source[status];
+  }
 
   // 8px以上ポインタを動かしたときだけドラッグ開始とみなす（クリック操作と区別するため）
   const sensors = useSensors(
@@ -156,7 +169,8 @@ export function Board() {
       // 挿入位置: カードの上に来たら、そのカードの「下端」を基準に手前／後ろを決める。
       // 真ん中を基準にすると、カーソルがカードの中心付近にあるだけで判定が
       // 入れ替わり続けてしまうため、下端を基準にして揺れにくくする。
-      const dest = prev[toStatus];
+      // 移動先カラムが期限順ソート中なら、見えている期限順の並びを基準にする
+      const dest = getDisplayTasks(toStatus, prev);
       let insertIndex = dest.length;
       if (overTask) {
         const overIndex = dest.findIndex((t) => t.id === overTask.id);
@@ -195,20 +209,23 @@ export function Board() {
     if (!overStatus) return;
 
     if (fromStatus === overStatus) {
-      // 同一カラム内: 位置決めはdnd-kit本体に任せ、arrayMoveで並びを入れ替えるだけ
-      const column = board[overStatus];
+      // 同一カラム内: 見えている並び（期限順ソート中ならその並び）を基準にarrayMoveで入れ替える。
+      // ドロップした結果が、そのまま新しい手動順として確定する
+      const column = getDisplayTasks(overStatus, board);
       const oldIndex = column.findIndex((t) => t.id === activeTask.id);
       const overIndex = overTask
         ? column.findIndex((t) => t.id === overTask.id)
         : column.length - 1;
       const newColumn = arrayMove(column, oldIndex, overIndex);
       setBoard((prev) => ({ ...prev, [overStatus]: newColumn }));
+      // 手動で並び替えたので、このカラムの期限順ソートは解除する
+      setDueDateSorted((prev) => ({ ...prev, [overStatus]: false }));
 
       const newIndex = newColumn.findIndex((c) => c.id === activeTask.id);
       persistPosition(activeTask.id, overStatus, newIndex);
     } else {
-      // カラム間の移動: 移動先カラムの該当位置にactiveを挿入する
-      const dest = board[overStatus].filter((t) => t.id !== activeTask.id);
+      // カラム間の移動: 移動先カラムの見えている並び（期限順ソート中ならその並び）を基準に挿入する
+      const dest = getDisplayTasks(overStatus, board).filter((t) => t.id !== activeTask.id);
       let insertIndex = dest.length;
       if (overTask) {
         // カードの上に落ちた場合、その上半分なら手前、下半分なら後ろに入れる
@@ -226,6 +243,8 @@ export function Board() {
         [fromStatus]: prev[fromStatus].filter((t) => t.id !== activeTask.id),
         [overStatus]: newColumn,
       }));
+      // 移動元・移動先の両方のカラムで並びが変わったので、両方の期限順ソートを解除する
+      setDueDateSorted((prev) => ({ ...prev, [fromStatus]: false, [overStatus]: false }));
 
       persistPosition(activeTask.id, overStatus, insertIndex);
     }
@@ -256,6 +275,10 @@ export function Board() {
             key={status}
             status={status}
             tasks={board[status]}
+            isDueDateSorted={dueDateSorted[status]}
+            onToggleDueDateSort={(s) =>
+              setDueDateSorted((prev) => ({ ...prev, [s]: !prev[s] }))
+            }
             onAddClick={setModalStatus}
             onEditClick={setEditingTask}
           />
