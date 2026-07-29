@@ -1,8 +1,11 @@
-import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { Task, TaskStatus } from "../types/task";
 import { sortByDueDate } from "../utils/sortByDueDate";
 import { TaskCard } from "./TaskCard";
+
+interface DragOverInfo {
+  taskId: number;
+  before: boolean;
+}
 
 interface ColumnProps {
   status: TaskStatus;
@@ -11,6 +14,15 @@ interface ColumnProps {
   onToggleDueDateSort: (status: TaskStatus) => void;
   onAddClick: (status: TaskStatus) => void;
   onEditClick: (task: Task) => void;
+  draggingTaskId: number | null;
+  dragOverInfo: DragOverInfo | null;
+  dragOverColumn: TaskStatus | null;
+  onCardDragStart: (taskId: number) => void;
+  onCardDragOver: (taskId: number, before: boolean) => void;
+  onCardDrop: (taskId: number) => void;
+  onDragEnd: () => void;
+  onColumnDragOver: (status: TaskStatus) => void;
+  onColumnDrop: (status: TaskStatus) => void;
 }
 
 // ステータスごとの表示ラベルと色（プロトタイプの配色を踏襲）
@@ -42,6 +54,15 @@ export function Column({
   onToggleDueDateSort,
   onAddClick,
   onEditClick,
+  draggingTaskId,
+  dragOverInfo,
+  dragOverColumn,
+  onCardDragStart,
+  onCardDragOver,
+  onCardDrop,
+  onDragEnd,
+  onColumnDragOver,
+  onColumnDrop,
 }: ColumnProps) {
   const style = COLUMN_STYLE[status];
 
@@ -49,12 +70,17 @@ export function Column({
   // 期限順ソートが有効なときだけ、表示直前に期限順へ並べ替える（boardの中身自体は変えない）
   const sortedTasks = isDueDateSorted ? sortByDueDate(tasks) : tasks;
 
-  // このカラム自体を「カードをドロップできる場所」として登録する（idはstatus）
-  const { setNodeRef } = useDroppable({ id: status });
-
   return (
     <div
-      ref={setNodeRef}
+      onDragEnter={(e) => e.preventDefault()}
+      onDragOver={(e) => {
+        e.preventDefault();
+        onColumnDragOver(status);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        onColumnDrop(status);
+      }}
       className="flex w-75 min-w-75 flex-shrink-0 flex-col rounded-xl bg-slate-200 p-4"
     >
       <div className="mb-3 flex items-center gap-2">
@@ -78,19 +104,31 @@ export function Column({
           期限順
         </button>
       </div>
-      {/* カラム内のタスク一覧を「並び替え可能なグループ」として登録する。
-          id=status を付けることで、各カードが「どのカラムの子か」を衝突判定から辿れるようにする */}
-      <SortableContext
-        id={status}
-        items={sortedTasks.map((task) => task.id)}
-        strategy={rectSortingStrategy}
+      {/* ハイライトの見た目だけをこのエリアに限定する。
+          ドロップ自体は外側のカラムdiv全体（＋追加ボタンより下の余白も含む）で受け付ける */}
+      <div
+        className={`flex min-h-20 flex-col gap-2.5 rounded-lg transition ${
+          dragOverColumn === status && !dragOverInfo
+            ? "bg-[#dce3ea] outline outline-2 outline-dashed outline-[#90cdf4]"
+            : ""
+        }`}
       >
-        <div className="flex min-h-20 flex-col gap-2.5">
-          {sortedTasks.map((task) => (
-            <TaskCard key={task.id} task={task} onEditClick={onEditClick} />
-          ))}
-        </div>
-      </SortableContext>
+        {sortedTasks.map((task) => (
+          <TaskCard
+            key={task.id}
+            task={task}
+            onEditClick={onEditClick}
+            isDragging={draggingTaskId === task.id}
+            dropIndicator={
+              dragOverInfo?.taskId === task.id ? (dragOverInfo.before ? "before" : "after") : null
+            }
+            onDragStart={() => onCardDragStart(task.id)}
+            onDragEnd={onDragEnd}
+            onCardDragOver={(before) => onCardDragOver(task.id, before)}
+            onCardDrop={() => onCardDrop(task.id)}
+          />
+        ))}
+      </div>
       {status !== "done" && (
         <button
           type="button"
