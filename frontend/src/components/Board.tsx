@@ -102,32 +102,36 @@ export function Board() {
     clearDragState();
   }
 
-  // カラム内での並び替えを確定する。
-  // TODO: カラムをまたぐ移動は次のステップで対応する（今は同じカラム内だけ）
+  // ドロップされた瞬間に、最終的な並びを確定する（カラムをまたぐ移動もここで一緒に扱う）
   function applyReorder(status: TaskStatus, targetTaskId: number | null, before: boolean) {
     if (draggingTaskId === null) return;
     const fromStatus = COLUMN_ORDER.find((s) => board[s].some((t) => t.id === draggingTaskId));
-    if (!fromStatus || fromStatus !== status) return;
+    if (!fromStatus) return;
 
-    const column = getDisplayTasks(status, board);
-    const dragging = column.find((t) => t.id === draggingTaskId);
+    const dragging = getDisplayTasks(fromStatus, board).find((t) => t.id === draggingTaskId);
     if (!dragging) return;
 
-    const rest = column.filter((t) => t.id !== draggingTaskId);
+    // 移動先カラムの見えている並び（期限順ソート中ならその並び）を基準に挿入位置を決める
+    const dest = getDisplayTasks(status, board).filter((t) => t.id !== draggingTaskId);
     let insertIndex: number;
     if (targetTaskId === null) {
-      insertIndex = rest.length;
+      insertIndex = dest.length;
     } else {
-      const targetIndex = rest.findIndex((t) => t.id === targetTaskId);
+      const targetIndex = dest.findIndex((t) => t.id === targetTaskId);
       insertIndex = before ? targetIndex : targetIndex + 1;
     }
 
-    const newColumn = [...rest];
-    newColumn.splice(insertIndex, 0, dragging);
+    const movedTask = { ...dragging, status };
+    const newDest = [...dest];
+    newDest.splice(insertIndex, 0, movedTask);
 
-    setBoard((prev) => ({ ...prev, [status]: newColumn }));
-    // 手動で並び替えたので、このカラムの期限順ソートは解除する
-    setDueDateSorted((prev) => ({ ...prev, [status]: false }));
+    setBoard((prev) => ({
+      ...prev,
+      ...(fromStatus !== status && { [fromStatus]: prev[fromStatus].filter((t) => t.id !== draggingTaskId) }),
+      [status]: newDest,
+    }));
+    // 移動元・移動先とも手動で並びが変わったので、期限順ソートは解除する
+    setDueDateSorted((prev) => ({ ...prev, [status]: false, [fromStatus]: false }));
     persistPosition(dragging.id, status, insertIndex);
   }
 

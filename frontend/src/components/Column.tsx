@@ -107,7 +107,7 @@ export function Column({
       {/* ハイライトの見た目だけをこのエリアに限定する。
           ドロップ自体は外側のカラムdiv全体（＋追加ボタンより下の余白も含む）で受け付ける */}
       <div
-        className={`flex min-h-20 flex-col gap-2.5 rounded-lg transition ${
+        className={`flex min-h-20 flex-col rounded-lg transition ${
           dragOverColumn === status && !dragOverInfo
             ? "bg-[#dce3ea] outline outline-2 outline-dashed outline-[#90cdf4]"
             : ""

@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import type { Task } from "../types/task";
 
 interface TaskCardProps {
@@ -60,20 +59,10 @@ function TaskCardBody({ task, onEditClick }: { task: Task; onEditClick?: (task: 
   );
 }
 
-// マウントされてから一定時間（0.5秒）経ったかどうかを返す。
-// 「ドラッグ中に、たった今この場所に生まれたばかりのカードかどうか」の判定に使う。
-function useMountStatus() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setIsMounted(true), 500);
-    return () => clearTimeout(timeout);
-  }, []);
-
-  return isMounted;
-}
-
 // カード本体。ネイティブのHTML5 Drag and Drop APIで直接ドラッグの配線をする。
+// カード同士の隙間（見た目上のgap）を、当たり判定としてはこのカード自身の下側パディングとして
+// 持たせている。隙間がどのカードにも属さない「無所属地帯」になると、そこにドロップしたときに
+// カラム全体のドロップ処理（＝末尾へ追加）まで素通りしてしまい、挿入位置がずれてしまうため。
 export function TaskCard({
   task,
   onEditClick,
@@ -84,11 +73,6 @@ export function TaskCard({
   onCardDragOver,
   onCardDrop,
 }: TaskCardProps) {
-  const mounted = useMountStatus();
-  // ドラッグ中、かつこの場所にできたばかり（別カラムから移ってきた直後）のカードだけ
-  // フェードインさせ、「パッと切り替わる」印象をやわらげる
-  const isNewlyMountedWhileDragging = isDragging && !mounted;
-
   return (
     <div
       draggable
@@ -112,13 +96,20 @@ export function TaskCard({
         if (isDragging) return; // 自分自身の上にドロップされた場合は何もしない
         onCardDrop();
       }}
-      className={`${CARD_CLASS} transition-shadow hover:shadow-md ${
-        isDragging ? "opacity-50" : ""
-      } ${isNewlyMountedWhileDragging ? "animate-fade-in" : ""} ${
-        dropIndicator === "before" ? "border-t-[3px] border-t-[#2b4c7e] pt-[7px]" : ""
-      } ${dropIndicator === "after" ? "border-b-[3px] border-b-[#2b4c7e] pb-[7px]" : ""}`}
+      className={`pb-2.5 ${isDragging ? "opacity-50" : ""}`}
     >
-      <TaskCardBody task={task} onEditClick={onEditClick} />
+      <div
+        className={`${CARD_CLASS} transition-shadow hover:shadow-md`}
+        style={
+          dropIndicator === "before"
+            ? { boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1), inset 0 3px 0 0 #2b4c7e" }
+            : dropIndicator === "after"
+              ? { boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1), inset 0 -3px 0 0 #2b4c7e" }
+              : undefined
+        }
+      >
+        <TaskCardBody task={task} onEditClick={onEditClick} />
+      </div>
     </div>
   );
 }
