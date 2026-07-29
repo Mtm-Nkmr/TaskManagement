@@ -50,12 +50,6 @@ export function Board() {
   // ドラッグ中にホバーしているカラム（カードの上ではなく空き領域）
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
 
-  // 「今画面に表示されている並び」を返す。期限順ソート中のカラムなら期限順に並べ替えた配列、
-  // そうでなければそのままの配列。ドラッグ操作は常にこの"見た目の並び"を基準に計算する。
-  function getDisplayTasks(status: TaskStatus, source: Board): Task[] {
-    return dueDateSorted[status] ? sortByDueDate(source[status]) : source[status];
-  }
-
   useEffect(() => {
     fetchTasks()
       .then((data) => setBoard(groupTasks(data)))
@@ -102,17 +96,19 @@ export function Board() {
     clearDragState();
   }
 
-  // ドロップされた瞬間に、最終的な並びを確定する（カラムをまたぐ移動もここで一緒に扱う）
+  // ドロップされた瞬間に、最終的な並びを確定する（カラムをまたぐ移動もここで一緒に扱う）。
+  // 移動先カラムが期限順表示中なら、その"見えている並び"を基準に挿入位置を決める。
   function applyReorder(status: TaskStatus, targetTaskId: number | null, before: boolean) {
     if (draggingTaskId === null) return;
     const fromStatus = COLUMN_ORDER.find((s) => board[s].some((t) => t.id === draggingTaskId));
     if (!fromStatus) return;
 
-    const dragging = getDisplayTasks(fromStatus, board).find((t) => t.id === draggingTaskId);
+    const dragging = board[fromStatus].find((t) => t.id === draggingTaskId);
     if (!dragging) return;
 
-    // 移動先カラムの見えている並び（期限順ソート中ならその並び）を基準に挿入位置を決める
-    const dest = getDisplayTasks(status, board).filter((t) => t.id !== draggingTaskId);
+    const isDestSorted = dueDateSorted[status];
+    const destSource = isDestSorted ? sortByDueDate(board[status]) : board[status];
+    const dest = destSource.filter((t) => t.id !== draggingTaskId);
     let insertIndex: number;
     if (targetTaskId === null) {
       insertIndex = dest.length;
@@ -132,7 +128,28 @@ export function Board() {
     }));
     // 移動元・移動先とも手動で並びが変わったので、期限順ソートは解除する
     setDueDateSorted((prev) => ({ ...prev, [status]: false, [fromStatus]: false }));
-    persistPosition(dragging.id, status, insertIndex);
+
+    if (isDestSorted) {
+      // 期限順表示から手動順に切り替わるので、今見えていた並び全体をDBへ焼き付ける
+      // （バックエンドは1回の呼び出しにつき1枚しか位置を更新できないため、順番に呼ぶ）
+      persistColumnOrder(newDest);
+    } else {
+      persistPosition(dragging.id, status, insertIndex);
+    }
+  }
+
+  // カラム全体の並びをDBへ焼き付ける（期限順表示から手動順へ切り替わるときに使う）
+  async function persistColumnOrder(orderedTasks: Task[]) {
+    try {
+      for (let i = 0; i < orderedTasks.length; i++) {
+        await updateTaskPosition(orderedTasks[i].id, { status: orderedTasks[i].status, index: i });
+      }
+    } catch {
+      fetchTasks()
+        .then((data) => setBoard(groupTasks(data)))
+        .catch(() => {});
+      setError("タスクの移動に失敗しました");
+    }
   }
 
   // サーバーに位置を保存する。失敗したらサーバーの状態を取り直して巻き戻す
