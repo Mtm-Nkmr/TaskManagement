@@ -1,16 +1,17 @@
-import { useEffect, useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import type { Task } from "../types/task";
 
 interface TaskCardProps {
   task: Task;
   onEditClick: (task: Task) => void;
+  isDragging: boolean;
+  dropIndicator: "before" | "after" | null;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onCardDragOver: (before: boolean) => void;
+  onCardDrop: () => void;
 }
 
-// カード共通の見た目（クラス）。
-// transform を使うホバー効果（浮き上がり）は付けない —— dnd-kitのドラッグ用transformと
-// 競合してカクつくため。ホバー演出は transform を使わない「影の変化」で表現する。
+// カード共通の見た目（クラス）
 const CARD_CLASS = "relative rounded-lg bg-white px-3.5 py-3 shadow-sm";
 
 // 期限が今日より前（過去）かどうかを判定する
@@ -21,8 +22,6 @@ function isOverdue(dueDate: string): boolean {
   return due < today;
 }
 
-// カードの中身（表示専用の部品）。ドラッグの配線は持たないので、
-// 通常のカードにも、ドラッグ中の分身（DragOverlay）にも使い回せる。
 function TaskCardBody({ task, onEditClick }: { task: Task; onEditClick?: (task: Task) => void }) {
   const { title, dueDate } = task;
 
@@ -45,6 +44,7 @@ function TaskCardBody({ task, onEditClick }: { task: Task; onEditClick?: (task: 
       {onEditClick && (
         <button
           type="button"
+          draggable={false}
           onClick={() => onEditClick(task)}
           className="absolute right-2 top-2 text-xs text-gray-400 hover:text-blue-600"
         >
@@ -59,55 +59,57 @@ function TaskCardBody({ task, onEditClick }: { task: Task; onEditClick?: (task: 
   );
 }
 
-// マウントされてから一定時間（0.5秒）経ったかどうかを返す。
-// 「ドラッグ中に、たった今この場所に生まれたばかりのカードかどうか」の判定に使う。
-function useMountStatus() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setIsMounted(true), 500);
-    return () => clearTimeout(timeout);
-  }, []);
-
-  return isMounted;
-}
-
-// 通常のカード。つかんで動かせるように useSortable の配線を持つ。
-export function TaskCard({ task, onEditClick }: TaskCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-  });
-  const mounted = useMountStatus();
-  // ドラッグ中、かつこの場所にできたばかり（別カラムから移ってきた直後）のカードだけ
-  // フェードインさせ、「パッと切り替わる」印象をやわらげる
-  const isNewlyMountedWhileDragging = isDragging && !mounted;
-
-  const dragStyle = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
+// カード本体。ネイティブのHTML5 Drag and Drop APIで直接ドラッグの配線をする。
+// カード同士の隙間（見た目上のgap）を、当たり判定としてはこのカード自身の下側パディングとして
+// 持たせている。隙間がどのカードにも属さない「無所属地帯」になると、そこにドロップしたときに
+// カラム全体のドロップ処理（＝末尾へ追加）まで素通りしてしまい、挿入位置がずれてしまうため。
+export function TaskCard({
+  task,
+  onEditClick,
+  isDragging,
+  dropIndicator,
+  onDragStart,
+  onDragEnd,
+  onCardDragOver,
+  onCardDrop,
+}: TaskCardProps) {
   return (
     <div
-      ref={setNodeRef}
-      style={dragStyle}
-      {...attributes}
-      {...listeners}
-      className={`${CARD_CLASS} transition-shadow hover:shadow-md ${
-        isNewlyMountedWhileDragging ? "animate-fade-in" : ""
-      }`}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDragOver={(e) => {
+        if (isDragging) return; // 自分自身の上はスキップ
+        e.preventDefault();
+        e.stopPropagation(); // カラム側のハイライトを抑制
+        const rect = e.currentTarget.getBoundingClientRect();
+        const before = e.clientY < rect.top + rect.height / 2;
+        onCardDragOver(before);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation(); // カラムへのバブリングを止める
+        if (isDragging) return; // 自分自身の上にドロップされた場合は何もしない
+        onCardDrop();
+      }}
+      className={`pb-2.5 ${isDragging ? "opacity-50" : ""}`}
     >
-      <TaskCardBody task={task} onEditClick={onEditClick} />
-    </div>
-  );
-}
-
-// ドラッグ中に表示する分身。マウスにピタッと追従する見た目専用のカード。
-export function TaskCardOverlay({ task }: { task: Task }) {
-  return (
-    <div className={`${CARD_CLASS} cursor-grabbing shadow-lg`}>
-      <TaskCardBody task={task} />
+      <div
+        className={`${CARD_CLASS} transition-shadow hover:shadow-md`}
+        style={
+          dropIndicator === "before"
+            ? { boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1), inset 0 3px 0 0 #2b4c7e" }
+            : dropIndicator === "after"
+              ? { boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1), inset 0 -3px 0 0 #2b4c7e" }
+              : undefined
+        }
+      >
+        <TaskCardBody task={task} onEditClick={onEditClick} />
+      </div>
     </div>
   );
 }
